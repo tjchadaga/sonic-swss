@@ -54,11 +54,17 @@ public:
         std::vector<std::string> nhv = tokenize(nexthops, NHG_DELIMITER);
         std::vector<std::string> wtv = tokenize(weights, NHG_DELIMITER);
         bool set_weight = wtv.size() == nhv.size();
+        int wtv_gcd = 1;
+        if(!wtv.empty() && set_weight) 
+        {
+            wtv_gcd = std::reduce(wtv.begin(), wtv.end(), wtv[0], std::gcd<int, int>);            
+        }
         for (uint32_t i = 0; i < nhv.size(); i++)
         {
             NextHopKey nh(nhv[i]);
-            nh.weight = set_weight? (uint32_t)std::stoi(wtv[i]) : 0;
-            m_nexthops.insert(nh);
+            int weight = set_weight? (uint32_t)std::stoi(wtv[i])/wtv_gcd : 0;
+            for(uint32_t j = 0; j < weight; j++)
+                m_nexthops.insert(nh);
         }
     }
 
