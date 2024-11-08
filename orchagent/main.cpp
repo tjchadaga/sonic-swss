@@ -71,7 +71,7 @@ string gMyAsicName = "";
 
 void usage()
 {
-    cout << "usage: orchagent [-h] [-r record_type] [-d record_location] [-f swss_rec_filename] [-j sairedis_rec_filename] [-b batch_size] [-m MAC] [-i INST_ID] [-s] [-z mode] [-k bulk_size] [-q zmq_server_address]" << endl;
+    cout << "usage: orchagent [-h] [-r record_type] [-d record_location] [-f swss_rec_filename] [-j sairedis_rec_filename] [-b batch_size] [-m MAC] [-i INST_ID] [-s] [-z mode] [-k bulk_size]" << endl;
     cout << "    -h: display this message" << endl;
     cout << "    -r record_type: record orchagent logs with type (default 3)" << endl;
     cout << "                    Bit 0: sairedis.rec, Bit 1: swss.rec, Bit 2: responsepublisher.rec. For example:" << endl;
@@ -89,7 +89,6 @@ void usage()
     cout << "    -f swss_rec_filename: swss record log filename(default 'swss.rec')" << endl;
     cout << "    -j sairedis_rec_filename: sairedis record log filename(default sairedis.rec)" << endl;
     cout << "    -k max bulk size in bulk mode (default 1000)" << endl;
-    cout << "    -q zmq_server_address: ZMQ server address (default disable ZMQ)" << endl;
 }
 
 void sighup_handler(int signo)
@@ -339,8 +338,6 @@ int main(int argc, char **argv)
     string record_location = Recorder::DEFAULT_DIR;
     string swss_rec_filename = Recorder::SWSS_FNAME;
     string sairedis_rec_filename = Recorder::SAIREDIS_FNAME;
-    string zmq_server_address = "tcp://127.0.0.1:" + to_string(ORCH_ZMQ_PORT);
-    bool   enable_zmq = false;
     string responsepublisher_rec_filename = Recorder::RESPPUB_FNAME;
     int record_type = 3; // Only swss and sairedis recordings enabled by default.
 
@@ -422,13 +419,6 @@ int main(int argc, char **argv)
                 }
             }
             break;
-        case 'q':
-            if (optarg)
-            {
-                zmq_server_address = optarg;
-                enable_zmq = true;
-            }
-            break;
         default: /* '?' */
             exit(EXIT_FAILURE);
         }
@@ -467,18 +457,6 @@ int main(int argc, char **argv)
     DBConnector appl_db("APPL_DB", 0);
     DBConnector config_db("CONFIG_DB", 0);
     DBConnector state_db("STATE_DB", 0);
-
-    // Instantiate ZMQ server
-    shared_ptr<ZmqServer> zmq_server = nullptr;
-    if (enable_zmq)
-    {
-        SWSS_LOG_NOTICE("Instantiate ZMQ server : %s", zmq_server_address.c_str());
-        zmq_server = make_shared<ZmqServer>(zmq_server_address.c_str());
-    }
-    else
-    {
-        SWSS_LOG_NOTICE("ZMQ disabled");
-    }
 
     // Get switch_type
     getCfgSwitchType(&config_db, gMySwitchType);
@@ -742,7 +720,7 @@ int main(int argc, char **argv)
     shared_ptr<OrchDaemon> orchDaemon;
     if (gMySwitchType != "fabric")
     {
-        orchDaemon = make_shared<OrchDaemon>(&appl_db, &config_db, &state_db, chassis_app_db.get(), zmq_server.get());
+        orchDaemon = make_shared<OrchDaemon>(&appl_db, &config_db, &state_db, chassis_app_db.get());
         if (gMySwitchType == "voq")
         {
             orchDaemon->setFabricEnabled(true);
@@ -752,7 +730,7 @@ int main(int argc, char **argv)
     }
     else
     {
-        orchDaemon = make_shared<FabricOrchDaemon>(&appl_db, &config_db, &state_db, chassis_app_db.get(), zmq_server.get());
+        orchDaemon = make_shared<FabricOrchDaemon>(&appl_db, &config_db, &state_db, chassis_app_db.get());
     }
 
     if (!orchDaemon->init())

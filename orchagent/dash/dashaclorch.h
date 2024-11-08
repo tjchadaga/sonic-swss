@@ -13,8 +13,6 @@
 #include <dbconnector.h>
 #include <bulker.h>
 #include <orch.h>
-#include "zmqorch.h"
-#include "zmqserver.h"
 
 #include "dashorch.h"
 #include "dashaclgroupmgr.h"
@@ -30,17 +28,15 @@ struct DashAclEntry {
 
 using DashAclTable = std::unordered_map<std::string, DashAclEntry>;
 
-class DashAclOrch : public ZmqOrch
+class DashAclOrch : public Orch
 {
 public:
     using TaskArgs = std::vector<swss::FieldValueTuple>;
 
-    DashAclOrch(swss::DBConnector *db, const std::vector<std::string> &tables, DashOrch *dash_orch, swss::ZmqServer *zmqServer);
-    DashAclGroupMgr& getDashAclGroupMgr();
-    DashTagMgr& getDashAclTagMgr();
+    DashAclOrch(swss::DBConnector *db, const std::vector<std::string> &tables, DashOrch *dash_orch);
 
 private:
-    void doTask(ConsumerBase &consumer);
+    void doTask(Consumer &consumer);
 
     task_process_status taskUpdateDashAclIn(
         const std::string &key,

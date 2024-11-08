@@ -100,18 +100,125 @@ void DashAclOrch::doTask(ConsumerBase &consumer)
 {
     SWSS_LOG_ENTER();
 
-    const static TaskMap TaskMap = {
-        PbWorker<AclIn>::makeMemberTask(APP_DASH_ACL_IN_TABLE_NAME, SET_COMMAND, &DashAclOrch::taskUpdateDashAclIn, this),
-        KeyOnlyWorker::makeMemberTask(APP_DASH_ACL_IN_TABLE_NAME, DEL_COMMAND, &DashAclOrch::taskRemoveDashAclIn, this),
-        PbWorker<AclOut>::makeMemberTask(APP_DASH_ACL_OUT_TABLE_NAME, SET_COMMAND, &DashAclOrch::taskUpdateDashAclOut, this),
-        KeyOnlyWorker::makeMemberTask(APP_DASH_ACL_OUT_TABLE_NAME, DEL_COMMAND, &DashAclOrch::taskRemoveDashAclOut, this),
-        PbWorker<AclGroup>::makeMemberTask(APP_DASH_ACL_GROUP_TABLE_NAME, SET_COMMAND, &DashAclOrch::taskUpdateDashAclGroup, this),
-        KeyOnlyWorker::makeMemberTask(APP_DASH_ACL_GROUP_TABLE_NAME, DEL_COMMAND, &DashAclOrch::taskRemoveDashAclGroup, this),
-        PbWorker<AclRule>::makeMemberTask(APP_DASH_ACL_RULE_TABLE_NAME, SET_COMMAND, &DashAclOrch::taskUpdateDashAclRule, this),
-        KeyOnlyWorker::makeMemberTask(APP_DASH_ACL_RULE_TABLE_NAME, DEL_COMMAND, &DashAclOrch::taskRemoveDashAclRule, this),
-        PbWorker<PrefixTag>::makeMemberTask(APP_DASH_PREFIX_TAG_TABLE_NAME, SET_COMMAND, &DashAclOrch::taskUpdateDashPrefixTag, this),
-        KeyOnlyWorker::makeMemberTask(APP_DASH_PREFIX_TAG_TABLE_NAME, DEL_COMMAND, &DashAclOrch::taskRemoveDashPrefixTag, this),
-     };
+    auto tokens = tokenize(buffer, ',');
+    ports.clear();
+    ports.reserve(tokens.size());
+    for (auto &token : tokens)
+    {
+        sai_u16_range_t port;
+        if (token.find('-') == string::npos)
+        {
+            // Only one port
+            lexical_convert(token, port.min);
+            port.max = port.min;
+        }
+        else if (!extractVariables(token, '-', port.min, port.max))
+        {
+            // Range
+            SWSS_LOG_ERROR("Invalid port range : %s", token.c_str());
+            throw invalid_argument("Invalid port range");
+        }
+        ports.push_back(port);
+    }
+}
+
+}
+
+static bool operator==(const sai_u16_range_t& a, const sai_u16_range_t& b)
+{
+    SWSS_LOG_ENTER();
+
+    return a.min == b.min && a.max == b.max;
+}
+
+template<class T>
+static bool updateValue(
+    const DashAclOrch::TaskArgs &ta,
+    const string &field,
+    boost::optional<T> &opt)
+{
+    SWSS_LOG_ENTER();
+
+    T value;
+
+    if (!getValue(ta, field, value))
+    {
+        return false;
+    }
+
+    if (opt && opt.value() == value)
+    {
+        return false;
+    }
+
+    opt = value;
+
+    return true;
+}
+
+sai_attr_id_t getSaiStage(DashAclDirection d, sai_ip_addr_family_t f, DashAclStage s)
+{
+    const static map<tuple<DashAclDirection, sai_ip_addr_family_t, DashAclStage>, sai_attr_id_t> StageMaps =
+        {
+            {{IN, SAI_IP_ADDR_FAMILY_IPV4, DashAclStage::STAGE1}, SAI_ENI_ATTR_INBOUND_V4_STAGE1_DASH_ACL_GROUP_ID},
+            {{IN, SAI_IP_ADDR_FAMILY_IPV4, DashAclStage::STAGE2}, SAI_ENI_ATTR_INBOUND_V4_STAGE2_DASH_ACL_GROUP_ID},
+            {{IN, SAI_IP_ADDR_FAMILY_IPV4, DashAclStage::STAGE3}, SAI_ENI_ATTR_INBOUND_V4_STAGE3_DASH_ACL_GROUP_ID},
+            {{IN, SAI_IP_ADDR_FAMILY_IPV4, DashAclStage::STAGE4}, SAI_ENI_ATTR_INBOUND_V4_STAGE4_DASH_ACL_GROUP_ID},
+            {{IN, SAI_IP_ADDR_FAMILY_IPV4, DashAclStage::STAGE5}, SAI_ENI_ATTR_INBOUND_V4_STAGE5_DASH_ACL_GROUP_ID},
+            {{IN, SAI_IP_ADDR_FAMILY_IPV6, DashAclStage::STAGE1}, SAI_ENI_ATTR_INBOUND_V6_STAGE1_DASH_ACL_GROUP_ID},
+            {{IN, SAI_IP_ADDR_FAMILY_IPV6, DashAclStage::STAGE2}, SAI_ENI_ATTR_INBOUND_V6_STAGE2_DASH_ACL_GROUP_ID},
+            {{IN, SAI_IP_ADDR_FAMILY_IPV6, DashAclStage::STAGE3}, SAI_ENI_ATTR_INBOUND_V6_STAGE3_DASH_ACL_GROUP_ID},
+            {{IN, SAI_IP_ADDR_FAMILY_IPV6, DashAclStage::STAGE4}, SAI_ENI_ATTR_INBOUND_V6_STAGE4_DASH_ACL_GROUP_ID},
+            {{IN, SAI_IP_ADDR_FAMILY_IPV6, DashAclStage::STAGE5}, SAI_ENI_ATTR_INBOUND_V6_STAGE5_DASH_ACL_GROUP_ID},
+            {{OUT, SAI_IP_ADDR_FAMILY_IPV4, DashAclStage::STAGE1}, SAI_ENI_ATTR_OUTBOUND_V4_STAGE1_DASH_ACL_GROUP_ID},
+            {{OUT, SAI_IP_ADDR_FAMILY_IPV4, DashAclStage::STAGE2}, SAI_ENI_ATTR_OUTBOUND_V4_STAGE2_DASH_ACL_GROUP_ID},
+            {{OUT, SAI_IP_ADDR_FAMILY_IPV4, DashAclStage::STAGE3}, SAI_ENI_ATTR_OUTBOUND_V4_STAGE3_DASH_ACL_GROUP_ID},
+            {{OUT, SAI_IP_ADDR_FAMILY_IPV4, DashAclStage::STAGE4}, SAI_ENI_ATTR_OUTBOUND_V4_STAGE4_DASH_ACL_GROUP_ID},
+            {{OUT, SAI_IP_ADDR_FAMILY_IPV4, DashAclStage::STAGE5}, SAI_ENI_ATTR_OUTBOUND_V4_STAGE5_DASH_ACL_GROUP_ID},
+            {{OUT, SAI_IP_ADDR_FAMILY_IPV6, DashAclStage::STAGE1}, SAI_ENI_ATTR_OUTBOUND_V6_STAGE1_DASH_ACL_GROUP_ID},
+            {{OUT, SAI_IP_ADDR_FAMILY_IPV6, DashAclStage::STAGE2}, SAI_ENI_ATTR_OUTBOUND_V6_STAGE2_DASH_ACL_GROUP_ID},
+            {{OUT, SAI_IP_ADDR_FAMILY_IPV6, DashAclStage::STAGE3}, SAI_ENI_ATTR_OUTBOUND_V6_STAGE3_DASH_ACL_GROUP_ID},
+            {{OUT, SAI_IP_ADDR_FAMILY_IPV6, DashAclStage::STAGE4}, SAI_ENI_ATTR_OUTBOUND_V6_STAGE4_DASH_ACL_GROUP_ID},
+            {{OUT, SAI_IP_ADDR_FAMILY_IPV6, DashAclStage::STAGE5}, SAI_ENI_ATTR_OUTBOUND_V6_STAGE5_DASH_ACL_GROUP_ID},
+        };
+
+    auto stage = StageMaps.find({d, f, s});
+    if (stage == StageMaps.end())
+    {
+        SWSS_LOG_ERROR("Invalid stage %d %d %d", d, f, s);
+        throw runtime_error("Invalid stage");
+    }
+
+    return stage->second;
+}
+
+DashAclOrch::DashAclOrch(DBConnector *db, const vector<string> &tables, DashOrch *dash_orch) :
+    Orch(db, tables),
+    m_dash_orch(dash_orch)
+{
+    SWSS_LOG_ENTER();
+
+    assert(m_dash_orch);
+}
+
+void DashAclOrch::doTask(Consumer &consumer)
+{
+    SWSS_LOG_ENTER();
+
+    using TaskType = tuple<const string, const string>;
+    using TaskFunc = task_process_status (DashAclOrch::*)(
+        const string &,
+        const TaskArgs &);
+    const static map<TaskType, TaskFunc> TaskMap = {
+        {{APP_DASH_ACL_IN_TABLE_NAME, SET_COMMAND}, &DashAclOrch::taskUpdateDashAclIn},
+        {{APP_DASH_ACL_IN_TABLE_NAME, DEL_COMMAND}, &DashAclOrch::taskRemoveDashAclIn},
+        {{APP_DASH_ACL_OUT_TABLE_NAME, SET_COMMAND}, &DashAclOrch::taskUpdateDashAclOut},
+        {{APP_DASH_ACL_OUT_TABLE_NAME, DEL_COMMAND}, &DashAclOrch::taskRemoveDashAclOut},
+        {{APP_DASH_ACL_GROUP_TABLE_NAME, SET_COMMAND}, &DashAclOrch::taskUpdateDashAclGroup},
+        {{APP_DASH_ACL_GROUP_TABLE_NAME, DEL_COMMAND}, &DashAclOrch::taskRemoveDashAclGroup},
+        {{APP_DASH_ACL_RULE_TABLE_NAME, SET_COMMAND}, &DashAclOrch::taskUpdateDashAclRule},
+        {{APP_DASH_ACL_RULE_TABLE_NAME, DEL_COMMAND}, &DashAclOrch::taskRemoveDashAclRule},
+    };
 
     const string &table_name = consumer.getTableName();
     auto itr = consumer.m_toSync.begin();

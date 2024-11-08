@@ -32,7 +32,7 @@ extern sai_object_id_t gSwitchId;
 extern size_t gMaxBulkSize;
 extern CrmOrch *gCrmOrch;
 
-DashOrch::DashOrch(DBConnector *db, vector<string> &tableName, ZmqServer *zmqServer) : ZmqOrch(db, tableName, zmqServer)
+DashOrch::DashOrch(DBConnector *db, vector<string> &tableName) : Orch(db, tableName)
 {
     SWSS_LOG_ENTER();
 }
@@ -141,7 +141,7 @@ bool DashOrch::removeApplianceEntry(const string& appliance_id)
     return true;
 }
 
-void DashOrch::doTaskApplianceTable(ConsumerBase& consumer)
+void DashOrch::doTaskApplianceTable(Consumer& consumer)
 {
     SWSS_LOG_ENTER();
 
@@ -223,7 +223,7 @@ bool DashOrch::removeRoutingTypeEntry(const string& routing_type)
     return true;
 }
 
-void DashOrch::doTaskRoutingTypeTable(ConsumerBase& consumer)
+void DashOrch::doTaskRoutingTypeTable(Consumer& consumer)
 {
     SWSS_LOG_ENTER();
 
@@ -523,7 +523,7 @@ bool DashOrch::removeEni(const string& eni)
     return true;
 }
 
-void DashOrch::doTaskEniTable(ConsumerBase& consumer)
+void DashOrch::doTaskEniTable(Consumer& consumer)
 {
     SWSS_LOG_ENTER();
 
@@ -603,7 +603,7 @@ bool DashOrch::removeQosEntry(const string& qos_name)
     return true;
 }
 
-void DashOrch::doTaskQosTable(ConsumerBase& consumer)
+void DashOrch::doTaskQosTable(Consumer& consumer)
 {
     auto it = consumer.m_toSync.begin();
     while (it != consumer.m_toSync.end())
@@ -651,7 +651,7 @@ void DashOrch::doTaskQosTable(ConsumerBase& consumer)
     }
 }
 
-void DashOrch::doTask(ConsumerBase& consumer)
+void DashOrch::doTask(Consumer& consumer)
 {
     SWSS_LOG_ENTER();
 

@@ -9,8 +9,6 @@
 #include "tokenize.h"
 #include "logger.h"
 #include "consumerstatetable.h"
-#include "zmqserver.h"
-#include "zmqconsumerstatetable.h"
 #include "sai_serialize.h"
 
 using namespace swss;
@@ -239,7 +237,6 @@ void ConsumerBase::dumpPendingTasks(vector<string> &ts)
 
 void Consumer::execute()
 {
-    // ConsumerBase::execute_impl<swss::ConsumerTableBase>();
     SWSS_LOG_ENTER();
 
     size_t update_size = 0;
@@ -257,7 +254,7 @@ void Consumer::execute()
 void Consumer::drain()
 {
     if (!m_toSync.empty())
-        ((Orch *)m_orch)->doTask((Consumer&)*this);
+        m_orch->doTask(*this);
 }
 
 size_t Orch::addExistingData(const string& tableName)

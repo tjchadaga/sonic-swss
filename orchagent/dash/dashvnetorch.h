@@ -11,11 +11,6 @@
 #include "ipaddresses.h"
 #include "macaddress.h"
 #include "timer.h"
-#include "zmqorch.h"
-#include "zmqserver.h"
-
-#include "dash_api/vnet.pb.h"
-#include "dash_api/vnet_mapping.pb.h"
 
 struct VnetEntry
 {
@@ -71,10 +66,10 @@ struct VnetMapBulkContext
     }
 };
 
-class DashVnetOrch : public ZmqOrch
+class DashVnetOrch : public Orch
 {
 public:
-    DashVnetOrch(swss::DBConnector *db, std::vector<std::string> &tables, swss::ZmqServer *zmqServer);
+    DashVnetOrch(swss::DBConnector *db, std::vector<std::string> &tables);
 
 private:
     DashVnetTable vnet_table_;
@@ -84,9 +79,9 @@ private:
     EntityBulker<sai_dash_outbound_ca_to_pa_api_t> outbound_ca_to_pa_bulker_;
     EntityBulker<sai_dash_pa_validation_api_t> pa_validation_bulker_;
 
-    void doTask(ConsumerBase &consumer);
-    void doTaskVnetTable(ConsumerBase &consumer);
-    void doTaskVnetMapTable(ConsumerBase &consumer);
+    void doTask(Consumer &consumer);
+    void doTaskVnetTable(Consumer &consumer);
+    void doTaskVnetMapTable(Consumer &consumer);
     bool addVnet(const std::string& key, DashVnetBulkContext& ctxt);
     bool addVnetPost(const std::string& key, const DashVnetBulkContext& ctxt);
     bool removeVnet(const std::string& key, DashVnetBulkContext& ctxt);
