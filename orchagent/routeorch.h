@@ -28,10 +28,10 @@
 struct NextHopGroupMemberEntry
 {
     sai_object_id_t  next_hop_id; // next hop sai oid
-    uint32_t         seq_id; // Sequence Id of nexthop in the group
+    uint32_t         seq_id; // Sequence Id of nexthop in the group    
 };
 
-typedef std::map<NextHopKey, NextHopGroupMemberEntry> NextHopGroupMembers;
+typedef std::map<NextHopKey, set<NextHopGroupMemberEntry>> NextHopGroupMembers;
 
 struct NhgBase;
 
@@ -40,6 +40,7 @@ struct NextHopGroupEntry
     sai_object_id_t         next_hop_group_id;      // next hop group id
     int                     ref_count;              // reference count
     NextHopGroupMembers     nhopgroup_members;      // ids of members indexed by <ip_address, if_alias>
+    int                     weight_gcd;
 };
 
 struct NextHopUpdate
