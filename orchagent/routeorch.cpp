@@ -403,47 +403,55 @@ bool RouteOrch::validnexthopinNextHopGroup(const NextHopKey &nexthop, uint32_t& 
 
         /* get updated nhkey with possible weight */
         auto nhkey = nhopgroup->first.getNextHops().find(nexthop);
-
-        nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_NEXT_HOP_GROUP_ID;
-        nhgm_attr.value.oid = nhopgroup->second.next_hop_group_id;
-        nhgm_attrs.push_back(nhgm_attr);
-
-        nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_NEXT_HOP_ID;
-        nhgm_attr.value.oid = m_neighOrch->getNextHopId(nexthop);
-        nhgm_attrs.push_back(nhgm_attr);
-
-        if (nhkey->weight)
+        auto entry_count = 1;
+        
+        if(nhkey->weight) 
         {
-            nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_WEIGHT;
-            nhgm_attr.value.s32 = nhkey->weight;
-            nhgm_attrs.push_back(nhgm_attr);
+            entry_count = nhkey->weight/nhopgroup->second.weight_gcd;
         }
-
-        if (m_switchOrch->checkOrderedEcmpEnable())
+        for(size_t j = 0; j < entry_count; j++)
         {
-            nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_SEQUENCE_ID;
-            nhgm_attr.value.u32 = nhopgroup->second.nhopgroup_members[nexthop].seq_id;
+            nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_NEXT_HOP_GROUP_ID;
+            nhgm_attr.value.oid = nhopgroup->second.next_hop_group_id;
             nhgm_attrs.push_back(nhgm_attr);
-        }
 
-        status = sai_next_hop_group_api->create_next_hop_group_member(&nexthop_id, gSwitchId,
-                                                                      (uint32_t)nhgm_attrs.size(),
-                                                                      nhgm_attrs.data());
+            nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_NEXT_HOP_ID;
+            nhgm_attr.value.oid = m_neighOrch->getNextHopId(nexthop);
+            nhgm_attrs.push_back(nhgm_attr);
 
-        if (status != SAI_STATUS_SUCCESS)
-        {
-            SWSS_LOG_ERROR("Failed to add next hop member to group %" PRIx64 ": %d\n",
-                           nhopgroup->second.next_hop_group_id, status);
-            task_process_status handle_status = handleSaiCreateStatus(SAI_API_NEXT_HOP_GROUP, status);
-            if (handle_status != task_success)
+            if (nhkey->weight)
             {
-                return parseHandleSaiStatusFailure(handle_status);
+                nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_WEIGHT;
+                nhgm_attr.value.s32 = 1;
+                nhgm_attrs.push_back(nhgm_attr);
             }
-        }
 
-        ++count;
-        gCrmOrch->incCrmResUsedCounter(CrmResourceType::CRM_NEXTHOP_GROUP_MEMBER);
-        nhopgroup->second.nhopgroup_members[nexthop].next_hop_id = nexthop_id;
+            if (m_switchOrch->checkOrderedEcmpEnable())
+            {
+                nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_SEQUENCE_ID;
+                nhgm_attr.value.u32 = nhopgroup->second.nhopgroup_members[nexthop][j].seq_id;
+                nhgm_attrs.push_back(nhgm_attr);
+            }
+
+            status = sai_next_hop_group_api->create_next_hop_group_member(&nexthop_id, gSwitchId,
+                                                                        (uint32_t)nhgm_attrs.size(),
+                                                                        nhgm_attrs.data());
+
+            if (status != SAI_STATUS_SUCCESS)
+            {
+                SWSS_LOG_ERROR("Failed to add next hop member to group %" PRIx64 ": %d\n",
+                            nhopgroup->second.next_hop_group_id, status);
+                task_process_status handle_status = handleSaiCreateStatus(SAI_API_NEXT_HOP_GROUP, status);
+                if (handle_status != task_success)
+                {
+                    return parseHandleSaiStatusFailure(handle_status);
+                }
+            }        
+
+            ++count;
+            gCrmOrch->incCrmResUsedCounter(CrmResourceType::CRM_NEXTHOP_GROUP_MEMBER);
+            nhopgroup->second.nhopgroup_members[nexthop][j].next_hop_id = nexthop_id;
+        }
     }
 
     if (!m_fgNhgOrch->validNextHopInNextHopGroup(nexthop))
@@ -471,22 +479,25 @@ bool RouteOrch::invalidnexthopinNextHopGroup(const NextHopKey &nexthop, uint32_t
             continue;
         }
 
-        nexthop_id = nhopgroup->second.nhopgroup_members[nexthop].next_hop_id;
-        status = sai_next_hop_group_api->remove_next_hop_group_member(nexthop_id);
-
-        if (status != SAI_STATUS_SUCCESS)
+        for(size_t j = 0 ; j < nhopgroup->second.nhopgroup_members[nexthop].size(); j++)
         {
-            SWSS_LOG_ERROR("Failed to remove next hop member %" PRIx64 " from group %" PRIx64 ": %d\n",
-                           nexthop_id, nhopgroup->second.next_hop_group_id, status);
-            task_process_status handle_status = handleSaiRemoveStatus(SAI_API_NEXT_HOP_GROUP, status);
-            if (handle_status != task_success)
-            {
-                return parseHandleSaiStatusFailure(handle_status);
-            }
-        }
+            nexthop_id = nhopgroup->second.nhopgroup_members[nexthop][j].next_hop_id;
+            status = sai_next_hop_group_api->remove_next_hop_group_member(nexthop_id);
 
-        ++count;
-        gCrmOrch->decCrmResUsedCounter(CrmResourceType::CRM_NEXTHOP_GROUP_MEMBER);
+            if (status != SAI_STATUS_SUCCESS)
+            {
+                SWSS_LOG_ERROR("Failed to remove next hop member %" PRIx64 " from group %" PRIx64 ": %d\n",
+                            nexthop_id, nhopgroup->second.next_hop_group_id, status);
+                task_process_status handle_status = handleSaiRemoveStatus(SAI_API_NEXT_HOP_GROUP, status);
+                if (handle_status != task_success)
+                {
+                    return parseHandleSaiStatusFailure(handle_status);
+                }
+            }
+
+            ++count;
+            gCrmOrch->decCrmResUsedCounter(CrmResourceType::CRM_NEXTHOP_GROUP_MEMBER);
+        }
     }
 
     if (!m_fgNhgOrch->invalidNextHopInNextHopGroup(nexthop))
@@ -1324,7 +1335,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
         next_hop_ids.push_back(next_hop_id);
         if (nhopgroup_members_set.find(next_hop_id) == nhopgroup_members_set.end())
         {
-            nhopgroup_members_set[next_hop_id] = it;
+            nhopgroup_members_set[next_hop_id] = it;            
         }
         else
         {
@@ -1365,74 +1376,96 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
     next_hop_group_entry.next_hop_group_id = next_hop_group_id;
 
     size_t npid_count = next_hop_ids.size();
-    vector<sai_object_id_t> nhgm_ids(npid_count);
+    size_t weight_gcd = 1;
+    if(npid_count && nhopgroup_members_set[0].weight) 
+    {  
+        weight_gcd = nhopgroup_members_set[0].weight;    
+        for(size_t i = 1; i < nhopgroup_members_set.size(); i++) 
+        {
+            weight_gcd = __gcd(weight_gcd, nhopgroup_members_set[i].weight);
+            if (weight_gcd == 1) 
+                break;
+        }       
+    }
+    SWSS_LOG_ERROR("GCD computed: %u\n", weight_gcd);
+    next_hop_group_entry.weight_gcd = weight_gcd;
+
+    NextHopGroupMembers nhgm_ids;
+    size_t seq_id = 0;
     for (size_t i = 0; i < npid_count; i++)
     {
         auto nhid = next_hop_ids[i];
-        auto weight = nhopgroup_members_set[nhid].weight;
-
-        // Create a next hop group member
-        vector<sai_attribute_t> nhgm_attrs;
-
-        sai_attribute_t nhgm_attr;
-        nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_NEXT_HOP_GROUP_ID;
-        nhgm_attr.value.oid = next_hop_group_id;
-        nhgm_attrs.push_back(nhgm_attr);
-
-        nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_NEXT_HOP_ID;
-        nhgm_attr.value.oid = nhid;
-        nhgm_attrs.push_back(nhgm_attr);
-
-        if (weight)
+        auto weight = nhopgroup_members_set[nhid].weight/weight_gcd;
+        sai_object_id_t nhgm_id;
+        SWSS_LOG_ERROR("Weight: %u\n", weight);
+        for(size_t j = 0; j < weight; j++)
         {
-            nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_WEIGHT;
-            nhgm_attr.value.s32 = weight;
-            nhgm_attrs.push_back(nhgm_attr);
-        }
+            // Create a next hop group member
+            vector<sai_attribute_t> nhgm_attrs;
 
-        if (m_switchOrch->checkOrderedEcmpEnable())
-        {
-            nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_SEQUENCE_ID;
-            nhgm_attr.value.u32 = ((uint32_t)i) + 1; // To make non-zero sequence id
+            sai_attribute_t nhgm_attr;
+            nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_NEXT_HOP_GROUP_ID;
+            nhgm_attr.value.oid = next_hop_group_id;
             nhgm_attrs.push_back(nhgm_attr);
-        }
 
-        gNextHopGroupMemberBulker.create_entry(&nhgm_ids[i],
-                                                 (uint32_t)nhgm_attrs.size(),
-                                                 nhgm_attrs.data());
+            nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_NEXT_HOP_ID;
+            nhgm_attr.value.oid = nhid;
+            nhgm_attrs.push_back(nhgm_attr);
+
+            if (weight)
+            {
+                nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_WEIGHT;
+                nhgm_attr.value.s32 = 1;
+                nhgm_attrs.push_back(nhgm_attr);
+            }
+
+            if (m_switchOrch->checkOrderedEcmpEnable())
+            {
+                nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_SEQUENCE_ID;
+                nhgm_attr.value.u32 = ((uint32_t)seq_id) + 1; // To make non-zero sequence id
+                nhgm_attrs.push_back(nhgm_attr);
+            }
+
+            gNextHopGroupMemberBulker.create_entry(&nhgm_id,
+                                                    (uint32_t)nhgm_attrs.size(),
+                                                    nhgm_attrs.data());
+            nhgm_ids[nhid].insert({nhgm_id, seq_id});                        
+        }
     }
 
     gNextHopGroupMemberBulker.flush();
     for (size_t i = 0; i < npid_count; i++)
     {
         auto nhid = next_hop_ids[i];
-        auto nhgm_id = nhgm_ids[i];
-        if (nhgm_id == SAI_NULL_OBJECT_ID)
+        for(size_t j = 0; j < nhgm_ids.size(); j++)
         {
-            // TODO: do we need to clean up?
-            SWSS_LOG_ERROR("Failed to create next hop group %" PRIx64 " member %" PRIx64 ": %d\n",
-                           next_hop_group_id, nhgm_ids[i], status);
-            return false;
-        }
-
-        gCrmOrch->incCrmResUsedCounter(CrmResourceType::CRM_NEXTHOP_GROUP_MEMBER);
-
-        // Save the membership into next hop structure
-        if (nhopgroup_shared_set.find(nhid) != nhopgroup_shared_set.end())
-        {
-            auto it = nhopgroup_shared_set[nhid].begin();
-            next_hop_group_entry.nhopgroup_members[*it].next_hop_id = nhgm_id;
-            next_hop_group_entry.nhopgroup_members[*it].seq_id = (uint32_t)i + 1;
-            nhopgroup_shared_set[nhid].erase(it);
-            if (nhopgroup_shared_set[nhid].empty())
+            auto nhgm_id = nhgm_ids[nhid][j].next_hop_id;
+            auto seq_id = nhgm_ids[nhid][j].seq_id;
+            if (nhgm_id == SAI_NULL_OBJECT_ID)
             {
-                nhopgroup_shared_set.erase(nhid);
+                // TODO: do we need to clean up?
+                SWSS_LOG_ERROR("Failed to create next hop group %" PRIx64 " member %" PRIx64 ": %d\n",
+                            next_hop_group_id, nhgm_ids[i], status);
+                return false;
             }
-        }
-        else
-        {
-            next_hop_group_entry.nhopgroup_members[nhopgroup_members_set.find(nhid)->second].next_hop_id = nhgm_id;
-            next_hop_group_entry.nhopgroup_members[nhopgroup_members_set.find(nhid)->second].seq_id = ((uint32_t)i) + 1;
+
+            gCrmOrch->incCrmResUsedCounter(CrmResourceType::CRM_NEXTHOP_GROUP_MEMBER);
+
+            // Save the membership into next hop structure
+            if (nhopgroup_shared_set.find(nhid) != nhopgroup_shared_set.end())
+            {
+                auto it = nhopgroup_shared_set[nhid].begin();
+                next_hop_group_entry.nhopgroup_members[*it].insert({nhgm_id, seq_id});
+                nhopgroup_shared_set[nhid].erase(it);
+                if (nhopgroup_shared_set[nhid].empty())
+                {
+                    nhopgroup_shared_set.erase(nhid);
+                }
+            }
+            else
+            {                
+                next_hop_group_entry.nhopgroup_members[nhopgroup_members_set.find(nhid)->second].insert({nhgm_id, seq_id});
+            }
         }
     }
 
@@ -1476,13 +1509,15 @@ bool RouteOrch::removeNextHopGroup(const NextHopGroupKey &nexthops)
     {
         if (m_neighOrch->isNextHopFlagSet(nhop->first, NHFLAGS_IFDOWN))
         {
-            SWSS_LOG_WARN("NHFLAGS_IFDOWN set for next hop group member %s with next_hop_id %" PRIx64,
-                           nhop->first.to_string().c_str(), nhop->second.next_hop_id);
+            for(size_t i =0 ; i < nhop->second.size(); i++)
+                SWSS_LOG_WARN("NHFLAGS_IFDOWN set for next hop group member %s with next_hop_ids %" PRIx64,
+                            nhop->first.to_string().c_str(), nhop->second[i].next_hop_id);
             nhop = nhgm.erase(nhop);
             continue;
         }
 
-        next_hop_ids.push_back(nhop->second.next_hop_id);
+        for(size_t i =0 ; i < nhop->second.size(); i++)
+            next_hop_ids.push_back(nhop->second[i].next_hop_id);
         nhop = nhgm.erase(nhop);
     }
 
