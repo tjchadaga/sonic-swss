@@ -403,13 +403,13 @@ bool RouteOrch::validnexthopinNextHopGroup(const NextHopKey &nexthop, uint32_t& 
 
         /* get updated nhkey with possible weight */
         auto nhkey = nhopgroup->first.getNextHops().find(nexthop);
-        auto entry_count = 1;
+        size_t member_ratio = 1;
         
         if(nhkey->weight) 
         {
-            entry_count = nhkey->weight/nhopgroup->second.weight_gcd;
+            member_ratio = nhkey->weight/nhopgroup->second.weight_offset;
         }
-        for(size_t j = 0; j < entry_count; j++)
+        for(size_t j = 0; j < member_ratio; j++)
         {
             nhgm_attr.id = SAI_NEXT_HOP_GROUP_MEMBER_ATTR_NEXT_HOP_GROUP_ID;
             nhgm_attr.value.oid = nhopgroup->second.next_hop_group_id;
@@ -1376,26 +1376,26 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
     next_hop_group_entry.next_hop_group_id = next_hop_group_id;
 
     size_t npid_count = next_hop_ids.size();
-    size_t weight_gcd = 1;
+    int weight_offset = 1;
     if(npid_count && nhopgroup_members_set[0].weight) 
     {  
-        weight_gcd = nhopgroup_members_set[0].weight;    
+        weight_offset = nhopgroup_members_set[0].weight;    
         for(size_t i = 1; i < nhopgroup_members_set.size(); i++) 
         {
-            weight_gcd = __gcd(weight_gcd, nhopgroup_members_set[i].weight);
-            if (weight_gcd == 1) 
+            weight_offset = std::__gcd(weight_offset, nhopgroup_members_set[i].weight);
+            if (weight_offset == 1) 
                 break;
         }       
     }
-    SWSS_LOG_ERROR("GCD computed: %u\n", weight_gcd);
-    next_hop_group_entry.weight_gcd = weight_gcd;
+    SWSS_LOG_ERROR("GCD computed: %d\n", weight_offset);
+    next_hop_group_entry.weight_offset = weight_offset;
 
     NextHopGroupMembers nhgm_ids;
     size_t seq_id = 0;
     for (size_t i = 0; i < npid_count; i++)
     {
         auto nhid = next_hop_ids[i];
-        auto weight = nhopgroup_members_set[nhid].weight/weight_gcd;
+        auto weight = nhopgroup_members_set[nhid].weight/weight_offset;
         sai_object_id_t nhgm_id;
         SWSS_LOG_ERROR("Weight: %u\n", weight);
         for(size_t j = 0; j < weight; j++)
@@ -1429,7 +1429,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
             gNextHopGroupMemberBulker.create_entry(&nhgm_id,
                                                     (uint32_t)nhgm_attrs.size(),
                                                     nhgm_attrs.data());
-            nhgm_ids[nhid].insert({nhgm_id, seq_id});                        
+            nhgm_ids[nhid].insert({nhgm_id, seq_id});                     
         }
     }
 
