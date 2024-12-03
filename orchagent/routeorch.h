@@ -40,7 +40,7 @@ struct NextHopGroupEntry
     sai_object_id_t         next_hop_group_id;      // next hop group id
     int                     ref_count;              // reference count
     NextHopGroupMembers     nhopgroup_members;      // ids of members indexed by <ip_address, if_alias>
-    int                     weight_offset;
+    uint32_t                weight_offset;
 };
 
 struct NextHopUpdate
