@@ -1391,7 +1391,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
     next_hop_group_entry.weight_offset = weight_offset;
 
     std::map<sai_object_id_t, std::vector<NextHopGroupMemberEntry>> nhgm_ids;
-    size_t seq_id = 0;
+    uint32_t seq_id = 0;
     for (size_t i = 0; i < npid_count; i++)
     {
         auto nhid = next_hop_ids[i];
@@ -1430,7 +1430,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
                                                     (uint32_t)nhgm_attrs.size(),
                                                     nhgm_attrs.data());
             NextHopGroupMemberEntry entry = {nhgm_id, seq_id};
-            nhgm_ids[nhid].insert(entry);                     
+            nhgm_ids[nhid].push_back(entry);                     
         }
     }
 
@@ -1457,7 +1457,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
             if (nhopgroup_shared_set.find(nhid) != nhopgroup_shared_set.end())
             {
                 auto it = nhopgroup_shared_set[nhid].begin();
-                next_hop_group_entry.nhopgroup_members[*it].insert(entry);
+                next_hop_group_entry.nhopgroup_members[*it].push_back(entry);
                 nhopgroup_shared_set[nhid].erase(it);
                 if (nhopgroup_shared_set[nhid].empty())
                 {
@@ -1466,7 +1466,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
             }
             else
             {                
-                next_hop_group_entry.nhopgroup_members[nhopgroup_members_set.find(nhid)->second].insert(entry);
+                next_hop_group_entry.nhopgroup_members[nhopgroup_members_set.find(nhid)->second].push_back(entry);
             }
         }
     }
