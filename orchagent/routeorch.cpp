@@ -1447,7 +1447,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
             {
                 // TODO: do we need to clean up?
                 SWSS_LOG_ERROR("Failed to create next hop group %" PRIx64 " member %" PRIx64 ": %d\n",
-                            next_hop_group_id, nhgm_ids[i], status);
+                            next_hop_group_id, nhgm_id, status);
                 return false;
             }
 
