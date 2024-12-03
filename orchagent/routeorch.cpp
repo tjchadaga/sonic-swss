@@ -1376,7 +1376,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
     next_hop_group_entry.next_hop_group_id = next_hop_group_id;
 
     size_t npid_count = next_hop_ids.size();
-    int weight_offset = 1;
+    uint32_t weight_offset = 1;
     if(npid_count && nhopgroup_members_set[0].weight) 
     {  
         weight_offset = nhopgroup_members_set[0].weight;    
@@ -1387,10 +1387,10 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
                 break;
         }       
     }
-    SWSS_LOG_ERROR("GCD computed: %d\n", weight_offset);
+    SWSS_LOG_ERROR("GCD computed: %u\n", weight_offset);
     next_hop_group_entry.weight_offset = weight_offset;
 
-    NextHopGroupMembers nhgm_ids;
+    std::map<sai_object_id_t, std::vector<NextHopGroupMemberEntry>> nhgm_ids;
     size_t seq_id = 0;
     for (size_t i = 0; i < npid_count; i++)
     {
@@ -1429,7 +1429,8 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
             gNextHopGroupMemberBulker.create_entry(&nhgm_id,
                                                     (uint32_t)nhgm_attrs.size(),
                                                     nhgm_attrs.data());
-            nhgm_ids[nhid].insert({nhgm_id, seq_id});                     
+            NextHopGroupMemberEntry entry = {nhgm_id, seq_id};
+            nhgm_ids[nhid].insert(entry);                     
         }
     }
 
@@ -1441,6 +1442,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
         {
             auto nhgm_id = nhgm_ids[nhid][j].next_hop_id;
             auto seq_id = nhgm_ids[nhid][j].seq_id;
+            NextHopGroupMemberEntry entry = {nhgm_id, seq_id};
             if (nhgm_id == SAI_NULL_OBJECT_ID)
             {
                 // TODO: do we need to clean up?
@@ -1455,7 +1457,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
             if (nhopgroup_shared_set.find(nhid) != nhopgroup_shared_set.end())
             {
                 auto it = nhopgroup_shared_set[nhid].begin();
-                next_hop_group_entry.nhopgroup_members[*it].insert({nhgm_id, seq_id});
+                next_hop_group_entry.nhopgroup_members[*it].insert(entry);
                 nhopgroup_shared_set[nhid].erase(it);
                 if (nhopgroup_shared_set[nhid].empty())
                 {
@@ -1464,7 +1466,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
             }
             else
             {                
-                next_hop_group_entry.nhopgroup_members[nhopgroup_members_set.find(nhid)->second].insert({nhgm_id, seq_id});
+                next_hop_group_entry.nhopgroup_members[nhopgroup_members_set.find(nhid)->second].insert(entry);
             }
         }
     }
