@@ -49,6 +49,7 @@ public:
 
     NextHopGroupKey(const std::string &nexthops, const std::string &weights)
     {
+        SWSS_LOG_ERROR("Received weights in NextHopGroupKey: %s",  weights);
         m_overlay_nexthops = false;
         m_srv6_nexthops = false;
         std::vector<std::string> nhv = tokenize(nexthops, NHG_DELIMITER);
@@ -56,7 +57,7 @@ public:
         bool set_weight = wtv.size() == nhv.size();
         for (uint32_t i = 0; i < nhv.size(); i++)
         {
-            NextHopKey nh(nhv[i]);
+            NextHopKey nh(nhv[i]);            
             nh.weight = set_weight? (uint32_t)std::stoi(wtv[i]) : 0;
             m_nexthops.insert(nh);
         }
