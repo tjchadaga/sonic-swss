@@ -408,7 +408,7 @@ bool RouteOrch::validnexthopinNextHopGroup(const NextHopKey &nexthop, uint32_t& 
         if(nhkey->weight) 
         {
             member_ratio = nhkey->weight/nhopgroup->second.weight_offset;
-            SWSS_LOG_ERROR("Weight %u, offset %u, ratio %u", nhkey->weight, nhopgroup->second.weight_offset, member_ratio);
+            SWSS_LOG_ERROR("Weight %u, offset %u, ratio %lu", nhkey->weight, nhopgroup->second.weight_offset, member_ratio);
         }
         for(size_t j = 0; j < member_ratio; j++)
         {
@@ -669,7 +669,7 @@ void RouteOrch::doTask(Consumer& consumer)
 
                     if (fvField(i) == "weight") {
                         weights = fvValue(i);
-                        SWSS_LOG_ERROR("Weight %s received", weights); 
+                        SWSS_LOG_ERROR("Weight %s received", weights.c_str()); 
                     }
                     if (fvField(i) == "nexthop_group")
                         nhg_index = fvValue(i);
@@ -852,7 +852,7 @@ void RouteOrch::doTask(Consumer& consumer)
                         }
 
                         nhg = NextHopGroupKey(nhg_str, weights);
-                        SWSS_LOG_ERROR("UCMP: weights: %s", weights);
+                        SWSS_LOG_ERROR("UCMP: weights: %s", weights.c_str());
                     }
                     else
                     {
@@ -1397,7 +1397,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
                 break;
         }       
     }
-    SWSS_LOG_ERROR("Weights size: %u, GCD computed: %u\n", weights.size(), weight_offset);
+    SWSS_LOG_ERROR("Weights size: %lu, GCD computed: %u\n", weights.size(), weight_offset);
     next_hop_group_entry.weight_offset = weight_offset;
 
     std::map<sai_object_id_t, std::vector<NextHopGroupMemberEntry>> nhgm_ids;
@@ -1817,7 +1817,7 @@ bool RouteOrch::addRoute(RouteBulkContext& ctx, const NextHopGroupKey &nextHops)
 
     auto it_route = m_syncdRoutes.at(vrf_id).find(ipPrefix);
 
-    if (m_fgNhgOrch->isRouteFineGrained(vrf_id, ipPrefix, nextHops))
+    if (m_fg                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            NhgOrch->isRouteFineGrained(vrf_id, ipPrefix, nextHops))
     {
         /* The route is pointing to a Fine Grained nexthop group */
         curNhgIsFineGrained = true;
