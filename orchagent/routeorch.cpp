@@ -669,7 +669,10 @@ void RouteOrch::doTask(Consumer& consumer)
 
                     if (fvField(i) == "weight") {
                         weights = fvValue(i);
-                        SWSS_LOG_ERROR("Weight %s received", weights.c_str()); 
+                        if(!weights.empty()) 
+                        {
+                            SWSS_LOG_ERROR("Weight %s received", weights.c_str()); 
+                        }
                     }
                     if (fvField(i) == "nexthop_group")
                         nhg_index = fvValue(i);
@@ -852,7 +855,10 @@ void RouteOrch::doTask(Consumer& consumer)
                         }
 
                         nhg = NextHopGroupKey(nhg_str, weights);
-                        SWSS_LOG_ERROR("UCMP: weights: %s", weights.c_str());
+                        if(!weights.empty())
+                        {
+                            SWSS_LOG_ERROR("UCMP: weights: %s", weights.c_str());
+                        }
                     }
                     else
                     {
@@ -1440,15 +1446,16 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
                                                     (uint32_t)nhgm_attrs.size(),
                                                     nhgm_attrs.data());
             NextHopGroupMemberEntry entry = {nhgm_id, seq_id};
-            nhgm_ids[nhid].push_back(entry);                     
+            nhgm_ids[nhid].push_back(entry);            
         }
     }
 
     gNextHopGroupMemberBulker.flush();
+
     for (size_t i = 0; i < npid_count; i++)
     {
         auto nhid = next_hop_ids[i];
-        for(size_t j = 0; j < nhgm_ids.size(); j++)
+        for(size_t j = 0; j < nhgm_ids[nhid].size(); j++)
         {
             auto nhgm_id = nhgm_ids[nhid][j].next_hop_id;
             auto seq_id = nhgm_ids[nhid][j].seq_id;
