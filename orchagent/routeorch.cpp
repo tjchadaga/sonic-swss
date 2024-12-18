@@ -1348,7 +1348,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
             nhopgroup_members_set[next_hop_id] = it;
             if(nhopgroup_members_set[next_hop_id].weight)
             {
-                weights.push_back(nhopgroup_members_set[next_hop_id].weight);
+                weights.push_back(nhopgroup_members_set[next_hop_id].weight + 1);
                 SWSS_LOG_ERROR("Next hop member weight: %u", nhopgroup_members_set[next_hop_id].weight);
             }
         }
@@ -1403,7 +1403,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
                 break;
         }       
     }
-    SWSS_LOG_ERROR("Weights size: %lu, GCD computed: %u\n", weights.size(), weight_offset);
+    SWSS_LOG_ERROR("Nexthops size: %lu, Weights size: %lu, GCD computed: %u\n", npid_count, weights.size(), weight_offset);
     next_hop_group_entry.weight_offset = weight_offset;
 
     std::map<sai_object_id_t, std::vector<NextHopGroupMemberEntry>> nhgm_ids;
@@ -1411,7 +1411,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
     for (size_t i = 0; i < npid_count; i++)
     {
         auto nhid = next_hop_ids[i];
-        auto weight = nhopgroup_members_set[nhid].weight/weight_offset;
+        auto weight = (nhopgroup_members_set[nhid].weight + 1)/weight_offset;
         sai_object_id_t nhgm_id;
         SWSS_LOG_ERROR("Weight: %u\n", weight);
         for(size_t j = 0; j < weight; j++)
