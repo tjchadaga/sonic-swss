@@ -48,8 +48,7 @@ public:
     }
 
     NextHopGroupKey(const std::string &nexthops, const std::string &weights)
-    {
-        SWSS_LOG_ERROR("Received weights in NextHopGroupKey: %s",  weights.c_str());
+    {        
         m_overlay_nexthops = false;
         m_srv6_nexthops = false;
         std::vector<std::string> nhv = tokenize(nexthops, NHG_DELIMITER);

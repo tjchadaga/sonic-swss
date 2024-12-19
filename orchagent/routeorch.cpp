@@ -1407,13 +1407,13 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
     next_hop_group_entry.weight_offset = weight_offset;
 
     std::map<sai_object_id_t, std::vector<NextHopGroupMemberEntry>> nhgm_ids;
-    uint32_t seq_id = 1;
+    uint32_t seq_id = 1;    
 
     for (size_t i = 0; i < npid_count; i++)
     {
         auto nhid = next_hop_ids[i];
         auto weight = (nhopgroup_members_set[nhid].weight + 1)/weight_offset;
-        sai_object_id_t nhgm_id;
+        nhgm_ids[nhid] = std::vector<NextHopGroupMemberEntry>(weight);
         SWSS_LOG_ERROR("Weight: %u\n", weight);
         for(size_t j = 0; j < weight; j++)
         {
@@ -1442,10 +1442,10 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
                 nhgm_attr.value.u32 = seq_id; // To make non-zero sequence id
                 nhgm_attrs.push_back(nhgm_attr);
             }
-            gNextHopGroupMemberBulker.create_entry(&nhgm_id,
+            gNextHopGroupMemberBulker.create_entry(&nhgm_ids[nhid][j].next_hop_id,
                                                     (uint32_t)nhgm_attrs.size(),
                                                     nhgm_attrs.data());            
-            nhgm_ids[nhid].push_back(NextHopGroupMemberEntry(nhgm_id, seq_id));
+            nhgm_ids[nhid][j] = seq_id;
             seq_id = seq_id + 1;        
         }
     }
@@ -1464,7 +1464,7 @@ bool RouteOrch::addNextHopGroup(const NextHopGroupKey &nexthops)
                 // TODO: do we need to clean up?
                 SWSS_LOG_ERROR("Failed to create next hop group %" PRIx64 " member %" PRIx64 ": %d\n",
                             next_hop_group_id, nhgm_id, status);
-                return false;
+                //return false;
             }
 
             gCrmOrch->incCrmResUsedCounter(CrmResourceType::CRM_NEXTHOP_GROUP_MEMBER);
