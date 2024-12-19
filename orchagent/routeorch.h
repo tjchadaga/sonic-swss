@@ -28,7 +28,11 @@
 struct NextHopGroupMemberEntry
 {
     sai_object_id_t  next_hop_id; // next hop sai oid
-    uint32_t         seq_id; // Sequence Id of nexthop in the group    
+    uint32_t         seq_id; // Sequence Id of nexthop in the group
+
+    NextHopGroupMemberEntry() = default;
+    NextHopGroupMemberEntry(const sai_object_id_t nhid, const uint32_t seqid) :
+        next_hop_id(nhid), seq_id(seqid) {}    
 };
 
 typedef std::map<NextHopKey, vector<NextHopGroupMemberEntry>> NextHopGroupMembers;
